@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Mi Music Hub</title>
+
+<!-- Esto hace que se pueda "instalar" en el celular como app -->
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#12101A" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg: #12101A;
+    --surface: #1E1B29;
+    --surface-2: #262233;
+    --border: rgba(232,178,77,0.18);
+    --text: #F4EFE6;
+    --text-muted: #B8AFC4;
+    --gold: #E8B24D;
+    --gold-soft: rgba(232,178,77,0.15);
+
+    --spotify: #1DB954;
+    --ytmusic: #FF0033;
+    --amazon: #34D3E0;
+    --deezer: #A238FF;
+    --applemusic: #FA2D48;
+  }
+
+  *{ box-sizing: border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
+  }
+
+  /* Fondo personalizable: imagen del usuario + degradado encima para que se pueda leer */
+  #bg-layer{
+    position: fixed; inset: 0;
+    background-size: cover;
+    background-position: center;
+    z-index: 0;
+    transition: background-image .3s ease;
+  }
+  #bg-overlay{
+    position: fixed; inset: 0;
+    background: radial-gradient(120% 100% at 50% 0%, rgba(18,16,26,0.55) 0%, rgba(18,16,26,0.92) 60%, #12101A 100%);
+    z-index: 1;
+  }
+
+  #app{
+    position: relative;
+    z-index: 2;
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100dvh;
+    padding: env(safe-area-inset-top) 20px env(safe-area-inset-bottom);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .view{ display:none; flex-direction:column; flex:1; padding-top: 28px; padding-bottom: 32px; }
+  .view.active{ display:flex; }
+
+  h1,h2,h3{ font-family:'Fraunces', serif; font-weight:700; margin:0; }
+
+  /* --- Encabezado / avatar --- */
+  .header-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom: 28px; }
+  .greeting{ display:flex; flex-direction:column; }
+  .greeting .eyebrow{ font-size:12.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-muted); }
+  .greeting h1{ font-size: 26px; margin-top:2px; }
+
+  .avatar-wrap{
+    width:56px; height:56px; border-radius:50%; position:relative; cursor:pointer;
+    flex-shrink:0;
+  }
+  .avatar-ring{
+    position:absolute; inset:-4px; border-radius:50%;
+    border: 2px dashed var(--gold);
+    animation: spin 14s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce){ .avatar-ring{ animation:none; } }
+  @keyframes spin{ to{ transform: rotate(360deg); } }
+  .avatar{
+    width:56px; height:56px; border-radius:50%;
+    background: var(--surface-2) center/cover no-repeat;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Fraunces', serif; font-size:20px; color: var(--gold);
+    border: 2px solid var(--bg);
+  }
+
+  /* --- Grid de servicios --- */
+  .section-label{ color:var(--text-muted); font-size:13px; margin: 6px 0 14px; }
+
+  .service-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:14px; }
+  .service-card{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 18px 16px;
+    display:flex; flex-direction:column; gap:14px;
+    cursor:pointer;
+    transition: transform .15s ease, background .15s ease;
+  }
+  .service-card:active{ transform: scale(0.97); }
+  .service-card .icon{
+    width:44px; height:44px; border-radius:12px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .service-card .name{ font-weight:600; font-size:15px; }
+  .service-card .status{ font-size:12px; color: var(--text-muted); }
+  .service-card .status.connected{ color:#7CE0A8; }
+
+  .icon.spotify{ background: rgba(29,185,84,0.15); color:var(--spotify); }
+  .icon.ytmusic{ background: rgba(255,0,51,0.15); color:var(--ytmusic); }
+  .icon.amazon{ background: rgba(52,211,224,0.15); color:var(--amazon); }
+  .icon.deezer{ background: rgba(162,56,255,0.15); color:var(--deezer); }
+  .icon.applemusic{ background: rgba(250,45,72,0.15); color:var(--applemusic); }
+
+  /* --- Botones --- */
+  .btn{
+    border:none; border-radius: 14px; padding: 14px 18px;
+    font-family:'Inter'; font-weight:600; font-size:15px;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn-primary{ background: var(--gold); color:#1A1508; }
+  .btn-ghost{ background: var(--surface-2); color: var(--text); border:1px solid var(--border); }
+  .btn-block{ width:100%; }
+  .btn:active{ opacity:.85; }
+
+  .back-btn{
+    background:none; border:none; color:var(--text-muted); font-size:14px;
+    display:flex; align-items:center; gap:6px; cursor:pointer; padding:8px 0; margin-bottom:12px;
+    font-family:'Inter'; font-weight:500;
+  }
+
+  /* --- Vista de servicio individual --- */
+  .service-header{ display:flex; align-items:center; gap:14px; margin-bottom: 22px; }
+  .service-header .icon{ width:52px; height:52px; border-radius:14px; }
+  .service-header h2{ font-size:22px; }
+
+  .card{
+    background: var(--surface);
+    border:1px solid var(--border);
+    border-radius:18px;
+    padding:18px;
+    margin-bottom:14px;
+  }
+  .card p{ margin:0 0 14px; color:var(--text-muted); font-size:14px; line-height:1.5; }
+
+  input[type=text]{
+    width:100%; padding:13px 14px; border-radius:12px; border:1px solid var(--border);
+    background: var(--surface-2); color:var(--text); font-size:15px; font-family:'Inter';
+    margin-bottom:10px;
+  }
+  input[type=text]::placeholder{ color: var(--text-muted); }
+
+  .playlist-row{
+    display:flex; align-items:center; gap:12px;
+    padding: 12px 0; border-bottom: 1px solid var(--border);
+  }
+  .playlist-row:last-child{ border-bottom:none; }
+  .playlist-row img{ width:44px; height:44px; border-radius:8px; object-fit:cover; background:var(--surface-2); }
+  .playlist-row .info{ flex:1; min-width:0; }
+  .playlist-row .info .t{ font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .playlist-row .info .s{ font-size:12px; color:var(--text-muted); }
+  .playlist-row .play-btn{
+    width:36px; height:36px; border-radius:50%; background:var(--gold-soft);
+    color:var(--gold); border:none; display:flex; align-items:center; justify-content:center; cursor:pointer;
+    flex-shrink:0;
+  }
+
+  /* --- Reproductor fijo abajo (Spotify) --- */
+  #now-playing{
+    position: sticky; bottom: 10px;
+    margin-top:auto;
+    background: var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding: 12px 14px;
+    display:none;
+    align-items:center; gap:12px;
+  }
+  #now-playing.active{ display:flex; }
+  #now-playing img{ width:42px; height:42px; border-radius:8px; }
+  #now-playing .np-info{ flex:1; min-width:0; }
+  #now-playing .np-info .t{ font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #now-playing .np-info .a{ font-size:12px; color:var(--text-muted); }
+  #now-playing button{ background:none; border:none; color:var(--gold); font-size:22px; cursor:pointer; }
+
+  /* --- Toggle de tabs en Ajustes --- */
+  .field-label{ font-size:13px; color:var(--text-muted); margin-bottom:8px; display:block; }
+  .upload-row{ display:flex; align-items:center; gap:14px; margin-bottom:22px; }
+  .upload-preview{ width:64px; height:64px; border-radius:12px; background:var(--surface-2) center/cover no-repeat; flex-shrink:0; }
+  .upload-preview.round{ border-radius:50%; }
+
+  .bottom-nav{
+    display:flex; justify-content:space-around; padding-top: 14px; margin-top:18px;
+    border-top: 1px solid var(--border);
+  }
+  .nav-btn{ background:none; border:none; color:var(--text-muted); font-size:12px; display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; font-family:'Inter'; }
+  .nav-btn.active{ color: var(--gold); }
+  .nav-btn svg{ width:22px; height:22px; }
+
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background: var(--surface-2); color:var(--text); padding:12px 18px; border-radius:12px;
+    font-size:13.5px; border:1px solid var(--border); z-index:50; opacity:0; pointer-events:none;
+    transition: opacity .25s ease; max-width: 90%; text-align:center;
+  }
+  .toast.show{ opacity:1; }
+</style>
+</head>
+<body>
+
+<div id="bg-layer"></div>
+<div id="bg-overlay"></div>
+
+<div id="app">
+
+  <!-- ===== VISTA: INICIO ===== -->
+  <section class="view active" id="view-home">
+    <div class="header-row">
+      <div class="greeting">
+        <span class="eyebrow">Hola de nuevo</span>
+        <h1 id="home-name">Tu música</h1>
+      </div>
+      <div class="avatar-wrap" onclick="goTo('settings')">
+        <div class="avatar-ring"></div>
+        <div class="avatar" id="avatar-home">🎧</div>
+      </div>
+    </div>
+
+    <p class="section-label">Elige dónde quieres escuchar</p>
+    <div class="service-grid">
+
+      <div class="service-card" onclick="goTo('spotify')">
+        <div class="icon spotify"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 18V6l11-2v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="18" r="3" stroke="currentColor" stroke-width="1.8"/><circle cx="17" cy="16" r="3" stroke="currentColor" stroke-width="1.8"/></svg></div>
+        <div>
+          <div class="name">Spotify</div>
+          <div class="status" id="status-spotify">Sin conectar</div>
+        </div>
+      </div>
+
+      <div class="service-card" onclick="goTo('deezer')">
+        <div class="icon deezer"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 18V6l11-2v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="18" r="3" stroke="currentColor" stroke-width="1.8"/><circle cx="17" cy="16" r="3" stroke="currentColor" stroke-width="1.8"/></svg></div>
+        <div>
+          <div class="name">Deezer</div>
+          <div class="status" id="status-deezer">Sin conectar</div>
+        </div>
+      </div>
+
+      <div class="service-card" onclick="goTo('applemusic')">
+        <div class="icon applemusic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 18V6l11-2v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="18" r="3" stroke="currentColor" stroke-width="1.8"/><circle cx="17" cy="16" r="3" stroke="currentColor" stroke-width="1.8"/></svg></div>
+        <div>
+          <div class="name">Apple Music</div>
+          <div class="status" id="status-applemusic">Sin conectar</div>
+        </div>
+      </div>
+
+      <div class="service-card" onclick="goTo('ytmusic')">
+        <div class="icon ytmusic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 18V6l11-2v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="18" r="3" stroke="currentColor" stroke-width="1.8"/><circle cx="17" cy="16" r="3" stroke="currentColor" stroke-width="1.8"/></svg></div>
+        <div>
+          <div class="name">YouTube Music</div>
+          <div class="status">Abrir y buscar</div>
+        </div>
+      </div>
+
+      <div class="service-card" onclick="goTo('amazon')">
+        <div class="icon amazon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 18V6l11-2v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="18" r="3" stroke="currentColor" stroke-width="1.8"/><circle cx="17" cy="16" r="3" stroke="currentColor" stroke-width="1.8"/></svg></div>
+        <div>
+          <div class="name">Amazon Music</div>
+          <div class="status">Abrir y buscar</div>
+        </div>
+      </div>
+
+    </div>
+
+    <div id="now-playing">
+      <img id="np-cover" src="" alt="">
+      <div class="np-info">
+        <div class="t" id="np-title">—</div>
+        <div class="a" id="np-artist">—</div>
+      </div>
+      <button onclick="togglePlay()" id="np-toggle">⏸</button>
+    </div>
+
+    <div class="bottom-nav">
+      <button class="nav-btn active" onclick="goTo('home')">🏠<span>Inicio</span></button>
+      <button class="nav-btn" onclick="goTo('settings')">⚙️<span>Ajustes</span></button>
+    </div>
+  </section>
+
+  <!-- ===== VISTA: SPOTIFY ===== -->
+  <section class="view" id="view-spotify">
+    <button class="back-btn" onclick="goTo('home')">← Volver</button>
+    <div class="service-header">
+      <div class="icon spotify"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 18V6l11-2v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="18" r="3" stroke="currentColor" stroke-width="1.8"/><circle cx="17" cy="16" r="3" stroke="currentColor" stroke-width="1.8"/></svg></div>
+      <h2>Spotify</h2>
+    </div>
+
+    <div class="card" id="spotify-login-card">
+      <p>Conecta tu cuenta para ver tus playlists y reproducir música dentro de la app (necesitas Spotify Premium para reproducir aquí mismo).</p>
+      <button class="btn btn-primary btn-block" onclick="spotifyLogin()">Conectar con Spotify</button>
+    </div>
+
+    <div id="spotify-content" style="display:none;">
+      <div class="card">
+        <p style="margin-bottom:0;">Tus playlists</p>
+      </div>
+      <div class="card" id="spotify-playlists"></div>
+      <button class="btn btn-ghost btn-block" onclick="spotifyLogout()">Cerrar sesión de Spotify</button>
+    </div>
+  </section>
+
+  <!-- ===== VISTA: DEEZER ===== -->
+  <section class="view" id="view-deezer">
+    <button class="back-btn" onclick="goTo('home')">← Volver</button>
+    <div class="service-header">
+      <div class="icon deezer"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 18V6l11-2v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="18" r="3" stroke="currentColor" stroke-width="1.8"/><circle cx="17" cy="16" r="3" stroke="currentColor" stroke-width="1.8"/></svg></div>
+      <h2>Deezer</h2>
+    </div>
+
+    <div class="card" id="deezer-login-card">
+      <p>Conecta tu cuenta para ver tus playlists. Al tocar una canción se abrirá el reproductor de Deezer para escucharla (Deezer no permite reproducir su audio dentro de apps de terceros).</p>
+      <button class="btn btn-primary btn-block" onclick="deezerLogin()">Conectar con Deezer</button>
+    </div>
+
+    <div id="deezer-content" style="display:none;">
+      <div class="card">
+        <p style="margin-bottom:0;">Tus playlists</p>
+      </div>
+      <div class="card" id="deezer-playlists"></div>
+      <button class="btn btn-ghost btn-block" onclick="deezerLogout()">Cerrar sesión de Deezer</button>
+    </div>
+  </section>
+
+  <!-- ===== VISTA: APPLE MUSIC ===== -->
+  <section class="view" id="view-applemusic">
+    <button class="back-btn" onclick="goTo('home')">← Volver</button>
+    <div class="service-header">
+      <div class="icon applemusic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 18V6l11-2v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="18" r="3" stroke="currentColor" stroke-width="1.8"/><circle cx="17" cy="16" r="3" stroke="currentColor" stroke-width="1.8"/></svg></div>
+      <h2>Apple Music</h2>
+    </div>
+
+    <div class="card" id="applemusic-login-card">
+      <p>Conecta tu cuenta para ver tus playlists y reproducir música dentro de la app (necesitas una suscripción activa de Apple Music).</p>
+      <button class="btn btn-primary btn-block" onclick="appleMusicLogin()">Conectar con Apple Music</button>
+    </div>
+
+    <div id="applemusic-content" style="display:none;">
+      <div class="card">
+        <p style="margin-bottom:0;">Tus playlists</p>
+      </div>
+      <div class="card" id="applemusic-playlists"></div>
+      <button class="btn btn-ghost btn-block" onclick="appleMusicLogout()">Cerrar sesión de Apple Music</button>
+    </div>
+  </section>
+
+  <!-- ===== VISTA: YOUTUBE MUSIC (deep link, sin API oficial) ===== -->
+  <section class="view" id="view-ytmusic">
+    <button class="back-btn" onclick="goTo('home')">← Volver</button>
+    <div class="service-header">
+      <div class="icon ytmusic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 18V6l11-2v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="18" r="3" stroke="currentColor" stroke-width="1.8"/><circle cx="17" cy="16" r="3" stroke="currentColor" stroke-width="1.8"/></svg></div>
+      <h2>YouTube Music</h2>
+    </div>
+    <div class="card">
+      <p>YouTube Music no ofrece una API pública para reproducir audio dentro de otras apps. Busca aquí y se abrirá la app o el sitio oficial para reproducir con tu cuenta.</p>
+      <input type="text" id="yt-search" placeholder="Buscar canción, artista o álbum...">
+      <button class="btn btn-primary btn-block" onclick="openSearch('ytmusic')">Buscar en YouTube Music</button>
+    </div>
+  </section>
+
+  <!-- ===== VISTA: AMAZON MUSIC (deep link, sin API oficial) ===== -->
+  <section class="view" id="view-amazon">
+    <button class="back-btn" onclick="goTo('home')">← Volver</button>
+    <div class="service-header">
+      <div class="icon amazon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 18V6l11-2v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="18" r="3" stroke="currentColor" stroke-width="1.8"/><circle cx="17" cy="16" r="3" stroke="currentColor" stroke-width="1.8"/></svg></div>
+      <h2>Amazon Music</h2>
+    </div>
+    <div class="card">
+      <p>Amazon Music no ofrece acceso público para reproducir audio dentro de otras apps. Busca aquí y se abrirá la app o el sitio oficial para reproducir con tu cuenta.</p>
+      <input type="text" id="amazon-search" placeholder="Buscar canción, artista o álbum...">
+      <button class="btn btn-primary btn-block" onclick="openSearch('amazon')">Buscar en Amazon Music</button>
+    </div>
+  </section>
+
+  <!-- ===== VISTA: AJUSTES / PERSONALIZAR ===== -->
+  <section class="view" id="view-settings">
+    <button class="back-btn" onclick="goTo('home')">← Volver</button>
+    <h2 style="margin-bottom:22px;">Personalizar</h2>
+
+    <span class="field-label">Foto de perfil</span>
+    <div class="upload-row">
+      <div class="upload-preview round" id="preview-avatar"></div>
+      <div style="display:flex; gap:10px;">
+        <button class="btn btn-ghost" onclick="document.getElementById('input-avatar').click()">Cambiar</button>
+        <button class="btn btn-ghost" onclick="clearImage('avatar')">Quitar</button>
+      </div>
+      <input type="file" id="input-avatar" accept="image/*" style="display:none" onchange="handleImage(event,'avatar')">
+    </div>
+
+    <span class="field-label">Fondo de la app</span>
+    <div class="upload-row">
+      <div class="upload-preview" id="preview-bg"></div>
+      <div style="display:flex; gap:10px;">
+        <button class="btn btn-ghost" onclick="document.getElementById('input-bg').click()">Cambiar</button>
+        <button class="btn btn-ghost" onclick="clearImage('bg')">Quitar</button>
+      </div>
+      <input type="file" id="input-bg" accept="image/*" style="display:none" onchange="handleImage(event,'bg')">
+    </div>
+
+    <span class="field-label">Tu nombre</span>
+    <input type="text" id="input-name" placeholder="¿Cómo te llamas?" oninput="saveName()">
+
+    <div class="bottom-nav">
+      <button class="nav-btn" onclick="goTo('home')">🏠<span>Inicio</span></button>
+      <button class="nav-btn active" onclick="goTo('settings')">⚙️<span>Ajustes</span></button>
+    </div>
+  </section>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   CONFIGURA AQUÍ TUS CREDENCIALES
+   (lee la guía que te di para saber de dónde sacarlas)
+========================================================= */
+const CONFIG = {
+  SPOTIFY_CLIENT_ID: "PON_AQUI_TU_SPOTIFY_CLIENT_ID",
+  DEEZER_APP_ID: "PON_AQUI_TU_DEEZER_APP_ID",
+  // Este NO se pide en cada login: es un token que generas UNA VEZ (dura hasta 6 meses).
+  // Se genera con el archivo generar-token-apple.html que te di aparte.
+  APPLE_MUSIC_DEVELOPER_TOKEN: "PON_AQUI_TU_APPLE_MUSIC_DEVELOPER_TOKEN",
+  // Debe ser EXACTAMENTE la URL donde vas a publicar esta app (sin barra al final si tu registro no la tiene)
+  REDIRECT_URI: window.location.origin + window.location.pathname
+};
+
+/* =========================================================
+   NAVEGACIÓN ENTRE PANTALLAS
+========================================================= */
+function goTo(view){
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=> t.classList.remove('show'), 2600);
+}
+
+/* =========================================================
+   PERSONALIZACIÓN (foto de perfil, fondo, nombre)
+   Todo se guarda en el propio celular (localStorage), nada
+   se sube a ningún servidor.
+========================================================= */
+function loadPersonalization(){
+  const avatar = localStorage.getItem('mh_avatar');
+  const bg = localStorage.getItem('mh_bg');
+  const name = localStorage.getItem('mh_name');
+
+  if(avatar){
+    document.getElementById('avatar-home').style.backgroundImage = `url(${avatar})`;
+    document.getElementById('avatar-home').textContent = '';
+    document.getElementById('preview-avatar').style.backgroundImage = `url(${avatar})`;
+  }
+  if(bg){
+    document.getElementById('bg-layer').style.backgroundImage = `url(${bg})`;
+    document.getElementById('preview-bg').style.backgroundImage = `url(${bg})`;
+  }
+  if(name){
+    document.getElementById('home-name').textContent = name;
+    document.getElementById('input-name').value = name;
+  }
+}
+
+function handleImage(event, kind){
+  const file = event.target.files[0];
+  if(!file) return;
+  if(file.size > 4 * 1024 * 1024){
+    showToast('Esa imagen pesa mucho, usa una de menos de 4MB');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const dataUrl = e.target.result;
+    localStorage.setItem(kind === 'avatar' ? 'mh_avatar' : 'mh_bg', dataUrl);
+    loadPersonalization();
+    showToast('Imagen actualizada');
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearImage(kind){
+  localStorage.removeItem(kind === 'avatar' ? 'mh_avatar' : 'mh_bg');
+  if(kind === 'avatar'){
+    document.getElementById('avatar-home').style.backgroundImage = '';
+    document.getElementById('avatar-home').textContent = '🎧';
+    document.getElementById('preview-avatar').style.backgroundImage = '';
+  } else {
+    document.getElementById('bg-layer').style.backgroundImage = '';
+    document.getElementById('preview-bg').style.backgroundImage = '';
+  }
+}
+
+function saveName(){
+  const val = document.getElementById('input-name').value.trim();
+  localStorage.setItem('mh_name', val || '');
+  document.getElementById('home-name').textContent = val || 'Tu música';
+}
+
+/* =========================================================
+   BÚSQUEDA CON DEEP LINK (YouTube Music / Amazon Music)
+   No hay API oficial de reproducción, así que abrimos la
+   app/página oficial ya con la búsqueda lista.
+========================================================= */
+function openSearch(service){
+  const inputId = service === 'ytmusic' ? 'yt-search' : 'amazon-search';
+  const query = document.getElementById(inputId).value.trim();
+  if(!query){ showToast('Escribe algo para buscar'); return; }
+  const q = encodeURIComponent(query);
+  const url = service === 'ytmusic'
+    ? `https://music.youtube.com/search?q=${q}`
+    : `https://music.amazon.com/search/${q}`;
+  window.open(url, '_blank');
+}
+
+/* =========================================================
+   SPOTIFY — login real (PKCE) + reproducción dentro de la app
+========================================================= */
+function base64url(buffer){
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+
+async function spotifyLogin(){
+  if(CONFIG.SPOTIFY_CLIENT_ID.startsWith('PON_AQUI')){
+    showToast('Falta configurar tu Spotify Client ID (ver instrucciones)');
+    return;
+  }
+  const verifierArr = crypto.getRandomValues(new Uint8Array(64));
+  const verifier = base64url(verifierArr);
+  localStorage.setItem('sp_verifier', verifier);
+
+  const encoder = new TextEncoder();
+  const digest = await crypto.subtle.digest('SHA-256', encoder.encode(verifier));
+  const challenge = base64url(digest);
+
+  const scope = 'playlist-read-private streaming user-read-playback-state user-modify-playback-state user-read-email';
+  const params = new URLSearchParams({
+    client_id: CONFIG.SPOTIFY_CLIENT_ID,
+    response_type: 'code',
+    redirect_uri: CONFIG.REDIRECT_URI,
+    scope,
+    code_challenge_method: 'S256',
+    code_challenge: challenge
+  });
+  window.location.href = `https://accounts.spotify.com/authorize?${params.toString()}`;
+}
+
+async function spotifyExchangeCode(code){
+  const verifier = localStorage.getItem('sp_verifier');
+  const body = new URLSearchParams({
+    client_id: CONFIG.SPOTIFY_CLIENT_ID,
+    grant_type: 'authorization_code',
+    code,
+    redirect_uri: CONFIG.REDIRECT_URI,
+    code_verifier: verifier
+  });
+  const res = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body
+  });
+  const data = await res.json();
+  if(data.access_token){
+    localStorage.setItem('sp_access_token', data.access_token);
+    localStorage.setItem('sp_refresh_token', data.refresh_token);
+    localStorage.setItem('sp_expires_at', Date.now() + data.expires_in*1000);
+  }
+}
+
+function spotifyGetToken(){
+  return localStorage.getItem('sp_access_token');
+}
+
+async function spotifyRefreshIfNeeded(){
+  const expiresAt = Number(localStorage.getItem('sp_expires_at') || 0);
+  if(Date.now() < expiresAt - 30000) return spotifyGetToken();
+  const refresh = localStorage.getItem('sp_refresh_token');
+  if(!refresh) return null;
+  const body = new URLSearchParams({
+    client_id: CONFIG.SPOTIFY_CLIENT_ID,
+    grant_type: 'refresh_token',
+    refresh_token: refresh
+  });
+  const res = await fetch('https://accounts.spotify.com/api/token', {
+    method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body
+  });
+  const data = await res.json();
+  if(data.access_token){
+    localStorage.setItem('sp_access_token', data.access_token);
+    localStorage.setItem('sp_expires_at', Date.now() + data.expires_in*1000);
+    return data.access_token;
+  }
+  return null;
+}
+
+async function spotifyLoadPlaylists(){
+  const token = await spotifyRefreshIfNeeded();
+  if(!token) return;
+  document.getElementById('spotify-login-card').style.display = 'none';
+  document.getElementById('spotify-content').style.display = 'block';
+  document.getElementById('status-spotify').textContent = 'Conectado';
+  document.getElementById('status-spotify').classList.add('connected');
+
+  const res = await fetch('https://api.spotify.com/v1/me/playlists?limit=15', {
+    headers:{ Authorization: `Bearer ${token}` }
+  });
+  const data = await res.json();
+  const wrap = document.getElementById('spotify-playlists');
+  wrap.innerHTML = '';
+  (data.items || []).forEach(pl => {
+    const img = pl.images?.[0]?.url || '';
+    const row = document.createElement('div');
+    row.className = 'playlist-row';
+    row.innerHTML = `
+      <img src="${img}" alt="">
+      <div class="info">
+        <div class="t">${pl.name}</div>
+        <div class="s">${pl.tracks.total} canciones</div>
+      </div>
+      <button class="play-btn" onclick="spotifyPlayContext('${pl.uri}','${(img||'').replace(/'/g,'')}','${pl.name.replace(/'/g,'')}')">▶</button>
+    `;
+    wrap.appendChild(row);
+  });
+}
+
+let spotifyPlayer, spotifyDeviceId;
+function loadSpotifySDK(){
+  if(document.getElementById('spotify-sdk')) return;
+  const s = document.createElement('script');
+  s.id = 'spotify-sdk';
+  s.src = 'https://sdk.scdn.co/spotify-player.js';
+  document.body.appendChild(s);
+}
+window.onSpotifyWebPlaybackSDKReady = () => {
+  const token = spotifyGetToken();
+  if(!token) return;
+  spotifyPlayer = new Spotify.Player({
+    name: 'Mi Music Hub',
+    getOAuthToken: cb => cb(spotifyGetToken()),
+    volume: 0.8
+  });
+  spotifyPlayer.addListener('ready', ({ device_id }) => { spotifyDeviceId = device_id; });
+  spotifyPlayer.addListener('player_state_changed', state => {
+    if(!state) return;
+    const track = state.track_window.current_track;
+    document.getElementById('now-playing').classList.add('active');
+    document.getElementById('np-cover').src = track.album.images?.[0]?.url || '';
+    document.getElementById('np-title').textContent = track.name;
+    document.getElementById('np-artist').textContent = track.artists.map(a=>a.name).join(', ');
+    document.getElementById('np-toggle').textContent = state.paused ? '▶' : '⏸';
+  });
+  spotifyPlayer.connect();
+};
+
+let currentPlayerService = null;
+
+async function spotifyPlayContext(uri, img, name){
+  const token = await spotifyRefreshIfNeeded();
+  if(!spotifyDeviceId){ showToast('Conectando reproductor, intenta de nuevo en unos segundos'); return; }
+  currentPlayerService = 'spotify';
+  await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${spotifyDeviceId}`, {
+    method:'PUT',
+    headers:{ Authorization:`Bearer ${token}`, 'Content-Type':'application/json' },
+    body: JSON.stringify({ context_uri: uri })
+  });
+}
+
+function spotifyTogglePlay(){
+  if(spotifyPlayer) spotifyPlayer.togglePlay();
+}
+
+// Botón único de play/pausa del reproductor flotante: decide a qué servicio avisarle
+function togglePlay(){
+  if(currentPlayerService === 'applemusic') appleMusicTogglePlay();
+  else spotifyTogglePlay();
+}
+
+function spotifyLogout(){
+  ['sp_access_token','sp_refresh_token','sp_expires_at','sp_verifier'].forEach(k=>localStorage.removeItem(k));
+  document.getElementById('spotify-login-card').style.display = 'block';
+  document.getElementById('spotify-content').style.display = 'none';
+  document.getElementById('status-spotify').textContent = 'Sin conectar';
+  document.getElementById('status-spotify').classList.remove('connected');
+  document.getElementById('now-playing').classList.remove('active');
+}
+
+/* =========================================================
+   DEEZER — login real (flujo del lado del cliente) + playlists
+========================================================= */
+function deezerLogin(){
+  if(CONFIG.DEEZER_APP_ID.startsWith('PON_AQUI')){
+    showToast('Falta configurar tu Deezer App ID (ver instrucciones)');
+    return;
+  }
+  const params = new URLSearchParams({
+    app_id: CONFIG.DEEZER_APP_ID,
+    redirect_uri: CONFIG.REDIRECT_URI,
+    perms: 'basic_access,offline_access',
+    response_type: 'token'
+  });
+  window.location.href = `https://connect.deezer.com/oauth/auth.php?${params.toString()}`;
+}
+
+async function deezerLoadPlaylists(){
+  const token = localStorage.getItem('dz_token');
+  if(!token) return;
+  document.getElementById('deezer-login-card').style.display = 'none';
+  document.getElementById('deezer-content').style.display = 'block';
+  document.getElementById('status-deezer').textContent = 'Conectado';
+  document.getElementById('status-deezer').classList.add('connected');
+
+  const res = await fetch(`https://api.deezer.com/user/me/playlists?access_token=${token}&output=jsonp&callback=deezerPlaylistsCB`);
+  // Deezer API solo permite JSONP para llamadas desde el navegador sin backend
+  const script = document.createElement('script');
+  script.src = `https://api.deezer.com/user/me/playlists?access_token=${token}&output=jsonp&callback=deezerPlaylistsCB`;
+  document.body.appendChild(script);
+}
+
+function deezerPlaylistsCB(data){
+  const wrap = document.getElementById('deezer-playlists');
+  wrap.innerHTML = '';
+  (data.data || []).forEach(pl => {
+    const row = document.createElement('div');
+    row.className = 'playlist-row';
+    row.innerHTML = `
+      <img src="${pl.picture_small || ''}" alt="">
+      <div class="info">
+        <div class="t">${pl.title}</div>
+        <div class="s">${pl.nb_tracks} canciones</div>
+      </div>
+      <button class="play-btn" onclick="window.open('${pl.link}','_blank')">▶</button>
+    `;
+    wrap.appendChild(row);
+  });
+}
+
+function deezerLogout(){
+  localStorage.removeItem('dz_token');
+  document.getElementById('deezer-login-card').style.display = 'block';
+  document.getElementById('deezer-content').style.display = 'none';
+  document.getElementById('status-deezer').textContent = 'Sin conectar';
+  document.getElementById('status-deezer').classList.remove('connected');
+}
+
+/* =========================================================
+   APPLE MUSIC — login real con MusicKit JS (SDK oficial de Apple)
+   y reproducción dentro de la app.
+========================================================= */
+let appleMusicInstance;
+
+function loadMusicKit(){
+  return new Promise((resolve) => {
+    if(window.MusicKit){ resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://js-cdn.music.apple.com/musickit/v3/musickit.js';
+    s.onload = () => resolve();
+    document.body.appendChild(s);
+    document.addEventListener('musickitloaded', () => resolve());
+  });
+}
+
+async function appleMusicLogin(){
+  if(CONFIG.APPLE_MUSIC_DEVELOPER_TOKEN.startsWith('PON_AQUI')){
+    showToast('Falta configurar tu Apple Music Developer Token (ver instrucciones)');
+    return;
+  }
+  await loadMusicKit();
+  if(!appleMusicInstance){
+    appleMusicInstance = window.MusicKit.configure({
+      developerToken: CONFIG.APPLE_MUSIC_DEVELOPER_TOKEN,
+      app: { name: 'Mi Music Hub', build: '1.0.0' }
+    });
+    appleMusicInstance.addEventListener('playbackStateDidChange', appleMusicUpdateNowPlaying);
+    appleMusicInstance.addEventListener('nowPlayingItemDidChange', appleMusicUpdateNowPlaying);
+  }
+  try{
+    await appleMusicInstance.authorize();
+    appleMusicLoadPlaylists();
+  }catch(e){
+    showToast('No se pudo conectar con Apple Music');
+  }
+}
+
+async function appleMusicLoadPlaylists(){
+  if(!appleMusicInstance || !appleMusicInstance.isAuthorized) return;
+  document.getElementById('applemusic-login-card').style.display = 'none';
+  document.getElementById('applemusic-content').style.display = 'block';
+  document.getElementById('status-applemusic').textContent = 'Conectado';
+  document.getElementById('status-applemusic').classList.add('connected');
+
+  const res = await fetch('https://api.music.apple.com/v1/me/library/playlists?limit=15', {
+    headers:{
+      Authorization: `Bearer ${CONFIG.APPLE_MUSIC_DEVELOPER_TOKEN}`,
+      'Music-User-Token': appleMusicInstance.musicUserToken
+    }
+  });
+  const data = await res.json();
+  const wrap = document.getElementById('applemusic-playlists');
+  wrap.innerHTML = '';
+  (data.data || []).forEach(pl => {
+    const img = pl.attributes?.artwork
+      ? pl.attributes.artwork.url.replace('{w}','80').replace('{h}','80')
+      : '';
+    const row = document.createElement('div');
+    row.className = 'playlist-row';
+    row.innerHTML = `
+      <img src="${img}" alt="">
+      <div class="info">
+        <div class="t">${pl.attributes?.name || 'Playlist'}</div>
+        <div class="s">${pl.attributes?.trackCount || 0} canciones</div>
+      </div>
+      <button class="play-btn" onclick="appleMusicPlayContext('${pl.id}')">▶</button>
+    `;
+    wrap.appendChild(row);
+  });
+}
+
+async function appleMusicPlayContext(playlistId){
+  if(!appleMusicInstance) return;
+  currentPlayerService = 'applemusic';
+  try{
+    await appleMusicInstance.setQueue({ playlist: playlistId });
+    await appleMusicInstance.play();
+  }catch(e){
+    showToast('No se pudo iniciar la reproducción');
+  }
+}
+
+function appleMusicTogglePlay(){
+  if(!appleMusicInstance) return;
+  if(appleMusicInstance.isPlaying) appleMusicInstance.pause();
+  else appleMusicInstance.play();
+}
+
+function appleMusicUpdateNowPlaying(){
+  if(!appleMusicInstance) return;
+  const item = appleMusicInstance.nowPlayingItem;
+  if(!item) return;
+  document.getElementById('now-playing').classList.add('active');
+  const artwork = item.artworkURL ? item.artworkURL.replace('{w}','80').replace('{h}','80') : '';
+  document.getElementById('np-cover').src = artwork;
+  document.getElementById('np-title').textContent = item.title || '—';
+  document.getElementById('np-artist').textContent = item.artistName || '—';
+  document.getElementById('np-toggle').textContent = appleMusicInstance.isPlaying ? '⏸' : '▶';
+}
+
+function appleMusicLogout(){
+  if(appleMusicInstance) appleMusicInstance.unauthorize();
+  document.getElementById('applemusic-login-card').style.display = 'block';
+  document.getElementById('applemusic-content').style.display = 'none';
+  document.getElementById('status-applemusic').textContent = 'Sin conectar';
+  document.getElementById('status-applemusic').classList.remove('connected');
+  if(currentPlayerService === 'applemusic') document.getElementById('now-playing').classList.remove('active');
+}
+
+/* =========================================================
+   AL CARGAR LA PÁGINA: revisa si venimos de un login
+========================================================= */
+window.addEventListener('load', () => {
+  loadPersonalization();
+
+  // Vuelta de Spotify (?code=...)
+  const urlParams = new URLSearchParams(window.location.search);
+  const code = urlParams.get('code');
+  if(code){
+    spotifyExchangeCode(code).then(() => {
+      window.history.replaceState({}, '', CONFIG.REDIRECT_URI);
+      loadSpotifySDK();
+      spotifyLoadPlaylists();
+      goTo('spotify');
+    });
+  } else if(spotifyGetToken()){
+    loadSpotifySDK();
+    spotifyLoadPlaylists();
+  }
+
+  // Vuelta de Deezer (#access_token=...)
+  if(window.location.hash.includes('access_token')){
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const dzToken = hashParams.get('access_token');
+    if(dzToken){
+      localStorage.setItem('dz_token', dzToken);
+      window.history.replaceState({}, '', CONFIG.REDIRECT_URI);
+      goTo('deezer');
+    }
+  }
+  if(localStorage.getItem('dz_token')){
+    deezerLoadPlaylists();
+  }
+
+  // Apple Music recuerda la sesión sola (MusicKit la guarda internamente)
+  if(!CONFIG.APPLE_MUSIC_DEVELOPER_TOKEN.startsWith('PON_AQUI')){
+    loadMusicKit().then(() => {
+      appleMusicInstance = window.MusicKit.configure({
+        developerToken: CONFIG.APPLE_MUSIC_DEVELOPER_TOKEN,
+        app: { name: 'Mi Music Hub', build: '1.0.0' }
+      });
+      appleMusicInstance.addEventListener('playbackStateDidChange', appleMusicUpdateNowPlaying);
+      appleMusicInstance.addEventListener('nowPlayingItemDidChange', appleMusicUpdateNowPlaying);
+      if(appleMusicInstance.isAuthorized) appleMusicLoadPlaylists();
+    });
+  }
+
+  // Registrar service worker para poder instalar la app
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+});
+</script>
+</body>
+</html>
